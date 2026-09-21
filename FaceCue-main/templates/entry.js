@@ -1,4 +1,4 @@
-import { attachRipple, scrollToBottom, escapeHtml } from "./src/utilities.js";
+import { attachRipple, scrollToBottom } from "./src/utilities.js";
 import { renderEmotionGrid } from "./src/render.js";
 import {
   clearUploadEmptyState,
@@ -35,15 +35,11 @@ import {
 
 function handleFile(file) {
   if (!file || !state.current) return;
-  clearUploadEmptyState();
 
   const targetEmo = state.current;   // e.g. "Happy", "Sad", "Surprise" …
   const reader = new FileReader();
 
   reader.onload = (e) => {
-    addUserImage(e.target.result);
-    state.hasUploadedThisSession = true;
-
     const typingNode = showTyping();
 
     const formData = new FormData();
@@ -68,6 +64,9 @@ function handleFile(file) {
         return res.json();
       })
       .then((analysisResult) => {
+        clearUploadEmptyState();
+        addUserImage(e.target.result);
+        state.hasUploadedThisSession = true;
         const responsePayload = {
           analysis: analysisResult,
           target_emotion: targetEmo.name,
@@ -90,7 +89,7 @@ function handleFile(file) {
             hideTyping(typingNode);
             addAnalysisCard(buildAnalysis(analysisResult, targetEmo));
             if (responseJson && responseJson.message) {
-              addAssistantText(`<p>${escapeHtml(responseJson.message)}</p>`);
+              addAssistantText(responseJson.message);
             }
           })
           .catch((err) => {
@@ -102,7 +101,7 @@ function handleFile(file) {
       .catch((err) => {
         hideTyping(typingNode);
         if (err.noFace) {
-          addAssistantText(`<p>No face detected, please try another picture.</p>`);
+          addAssistantText("No face detected, please try another picture.");
         } else {
           console.error("Image analysis failed:", err);
         }
@@ -119,6 +118,34 @@ function handleFile(file) {
     addUserText(text);
     textInput.value = "";
     sendBtn.disabled = true;
+
+    const typingNode = showTyping();
+    fetch("/response", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        analysis: {
+          label: state.current.name,
+          confidence: 0,
+          all_probs: {},
+        },
+        target_emotion: state.current.name,
+        message: text,
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`/response failed: ${res.status}`);
+        return res.json();
+      })
+      .then((payload) => addAssistantText(payload.message || "I could not generate a reply."))
+      .catch((err) => {
+        console.error("Message response failed:", err);
+        addAssistantText("I could not send that message. Please try again.");
+      })
+      .finally(() => {
+        hideTyping(typingNode);
+        sendBtn.disabled = false;
+      });
   }
 
   function bindEvents() {

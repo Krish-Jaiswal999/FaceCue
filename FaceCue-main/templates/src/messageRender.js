@@ -8,10 +8,29 @@ function cloneTpl(id) {
 
 function addAssistantText(html) {
     const node = cloneTpl("tpl-assistant-text");
-    node.querySelector(".msg-bubble-assistant").innerHTML = html;
+    node.querySelector(".msg-bubble-assistant").innerHTML = renderMarkdown(html);
     chatMessages.appendChild(node);
     scrollToBottom();
     return node;
+}
+
+function renderMarkdown(value) {
+    const escaped = String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/`([^`]+)`/g, "<code>$1</code>");
+    return escaped
+        .split(/\n{2,}/)
+        .map((block) => {
+            const lines = block.split("\n");
+            if (lines.every((line) => /^\s*-\s+/.test(line))) {
+                return `<ul>${lines.map((line) => `<li>${line.replace(/^\s*-\s+/, "")}</li>`).join("")}</ul>`;
+            }
+            return `<p>${lines.join("<br>")}</p>`;
+        })
+        .join("");
 }
 
 function addUserText(text) {

@@ -23,9 +23,6 @@ def decode_access_token(token: str) -> dict:
         raise HTTPException(status_code=401, detail="Token expired")
     
     except PyJWTError:
-        raise HTTPException(status_code=401, detail="Could not validate credentials")
-    
-    except PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",

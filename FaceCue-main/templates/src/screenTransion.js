@@ -24,11 +24,11 @@ export function startPractice(emo) {
     screenSelect.classList.remove("is-active");
     screenPractice.classList.add("is-active");
 
-    addAssistantText(`
-        <p>Great choice! Today we're practicing <strong>${emo.name}</strong>.</p>
-        <p>Upload a selfie showing the expression you'd like other people to perceive.</p>
-        <p>When you're ready, press the upload button below.</p>
-    `);
+    addAssistantText(`Great choice! Today we're practicing **${emo.name}**.
+
+Upload a selfie showing the expression you'd like other people to perceive.
+
+When you're ready, press the upload button below.`);
     showUploadEmptyState();
 
     scrollToBottom();

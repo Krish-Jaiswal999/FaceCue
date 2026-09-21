@@ -4,19 +4,26 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import app.pydantic_inputVerify.responseModel as response
 import traceback
+import asyncio
 
 load_dotenv()
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if not GROQ_API_KEY:
+    raise RuntimeError("GROQ_API_KEY is required; set it in .env before starting FaceCue")
 
 router = APIRouter()
 client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
-    api_key=os.getenv('GROQ_API_KEY'),
+    api_key=GROQ_API_KEY,
 )
 
 MASTER_PROMPT = os.getenv('MASTER_PROMPT')
 
 
-def build_user_message(analysis: response.EmotionAnalysis, target_emotion: str) -> str:
+def build_user_message(
+    analysis: response.EmotionAnalysis, target_emotion: str, user_message: str | None
+) -> str:
     probs_formatted = "\n".join(
         f"  - {emotion}: {prob * 100:.2f}%"
         for emotion, prob in sorted(
@@ -24,6 +31,7 @@ def build_user_message(analysis: response.EmotionAnalysis, target_emotion: str) 
         )
     )
 
+    message_context = f"\nUser's follow-up message:\n{user_message}" if user_message else ""
     return f"""Current expression detected: **{analysis.label}** ({analysis.confidence * 100:.1f}% confidence)
 
 Full probability breakdown:
@@ -31,7 +39,8 @@ Full probability breakdown:
 
 Target emotion the user wants to express: **{target_emotion}**
 
-Please provide your coaching feedback."""
+Please provide your coaching feedback.
+{message_context}"""
 
 
 @router.post("/response")
@@ -45,10 +54,14 @@ async def generate_response(body: response.ResponseRequest):
                    "Must be one of: Neutral, Happy, Sad, Surprise, Fear, Disgust, Angry",
         )
  
-    user_message = build_user_message(body.analysis, body.target_emotion)
+    user_message = build_user_message(body.analysis, body.target_emotion, body.message)
  
     try:
-        chat_completion = client.chat.completions.create(
+        if not MASTER_PROMPT:
+            raise RuntimeError("Coaching service is not configured")
+
+        chat_completion = await asyncio.to_thread(
+            client.chat.completions.create,
             model="openai/gpt-oss-20b",
             messages=[
                 {"role": "system", "content": MASTER_PROMPT},
@@ -69,4 +82,4 @@ async def generate_response(body: response.ResponseRequest):
     except Exception as e:
         traceback.print_exc()
         print("ERROR:", str(e))
-        raise HTTPException(status_code=500, detail=f"Groq API error: {str(e)}")
+        raise HTTPException(status_code=502, detail="Coaching service is temporarily unavailable")

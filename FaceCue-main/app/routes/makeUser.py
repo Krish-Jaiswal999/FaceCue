@@ -15,12 +15,13 @@ router = APIRouter()
 
 @router.post("/auth/signup", response_model=TokenResponse, status_code=201)
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == payload.email).first()
+    email = payload.normalized_email()
+    existing = db.query(User).filter(User.email == email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
     user = User(
-        email=payload.email,
+        email=email,
         hashed_password=hash_password(payload.password),
         full_name=payload.full_name,
         auth_provider="local",
@@ -35,7 +36,7 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
 
 @router.post("/auth/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
+    user = db.query(User).filter(User.email == payload.normalized_email()).first()
 
     if not user or not user.hashed_password:
         # Either no such user, or they signed up via Google and have no password
@@ -65,7 +66,7 @@ def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Google email not verified")
 
     google_sub = idinfo["sub"]
-    email = idinfo["email"]
+    email = idinfo["email"].strip().lower()
 
     user = db.query(User).filter(User.google_sub == google_sub).first()
 
@@ -75,6 +76,7 @@ def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)):
         if user:
             # Link the existing account to Google
             user.google_sub = google_sub
+            user.hashed_password = None
             if user.auth_provider == "local":
                 user.auth_provider = "local+google"
         else:

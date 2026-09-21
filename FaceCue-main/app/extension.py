@@ -13,6 +13,11 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is required; set it in .env before starting FaceCue")
+if not SECRET_KEY:
+    raise RuntimeError("JWT_SECRET_KEY is required; set it in .env before starting FaceCue")
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 

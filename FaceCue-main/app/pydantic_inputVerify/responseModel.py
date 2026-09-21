@@ -9,3 +9,4 @@ class EmotionAnalysis(BaseModel):
 class ResponseRequest(BaseModel):
     analysis: EmotionAnalysis
     target_emotion: str
+    message: str | None = None

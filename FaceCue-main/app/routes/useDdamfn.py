@@ -1,6 +1,8 @@
 import os
 import numpy as np
 import cv2
+import threading
+import asyncio
 import mediapipe as mp
 from mediapipe.tasks import python as mp_python
 from mediapipe.tasks.python import vision
@@ -20,6 +22,8 @@ predictor = DDAMFNPredictor(WEIGHTS_PATH)
 _base_options = mp_python.BaseOptions(model_asset_path=LANDMARKER_PATH)
 _landmarker_options = vision.FaceLandmarkerOptions(base_options=_base_options, num_faces=1)
 landmarker = vision.FaceLandmarker.create_from_options(_landmarker_options)
+model_lock = threading.Lock()
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 LANDMARK_IDX = {"left_eye": 33, "right_eye": 263, "nose": 1, "mouth_left": 61, "mouth_right": 291}
 
@@ -40,18 +44,9 @@ async def predict_emotion(image: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Uploaded file is not an image")
 
     raw_bytes = await image.read()
-    npimg = np.frombuffer(raw_bytes, np.uint8)
-    img_bgr = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
-    if img_bgr is None:
-        raise HTTPException(status_code=400, detail="Could not decode image — file may be corrupted")
-
-    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-    landmarks = get_5pt_landmarks(img_rgb)
-    if landmarks is None:
-        raise HTTPException(status_code=422, detail="No face detected in the image")
-
-    aligned = predictor.align_face(img_bgr, landmarks)
-    result = predictor.predict(aligned)
+    if len(raw_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Image is too large (maximum 10 MB)")
+    result = await asyncio.to_thread(analyze_image, raw_bytes)
 
     ordered_labels = list(result["all_probs"].keys())
     tensor = [result["all_probs"][label] for label in ordered_labels]
@@ -63,6 +58,21 @@ async def predict_emotion(image: UploadFile = File(...)):
         "tensor": tensor,
         "all_probs": result["all_probs"],
     }
+
+
+def analyze_image(raw_bytes: bytes):
+    npimg = np.frombuffer(raw_bytes, np.uint8)
+    img_bgr = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
+    if img_bgr is None:
+        raise HTTPException(status_code=400, detail="Could not decode image — file may be corrupted")
+
+    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    with model_lock:
+        landmarks = get_5pt_landmarks(img_rgb)
+        if landmarks is None:
+            raise HTTPException(status_code=422, detail="No face detected in the image")
+        aligned = predictor.align_face(img_bgr, landmarks)
+        return predictor.predict(aligned)
 
 @router.get("/health")
 async def health():

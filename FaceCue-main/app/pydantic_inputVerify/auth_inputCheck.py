@@ -6,10 +6,16 @@ class SignupRequest(BaseModel):
     password: SecretStr = Field(min_length=8)
     full_name: Optional[str] = Field(default=None, max_length=255)
 
+    def normalized_email(self) -> str:
+        return self.email.strip().lower()
+
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: SecretStr
+
+    def normalized_email(self) -> str:
+        return self.email.strip().lower()
 
 
 class UserOut(BaseModel):
