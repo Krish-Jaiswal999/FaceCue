@@ -1,4 +1,5 @@
 from typing import Optional, Literal
+from uuid import UUID
 from pydantic import BaseModel, EmailStr, ConfigDict, Field, SecretStr
 
 class SignupRequest(BaseModel):
@@ -19,9 +20,9 @@ class LoginRequest(BaseModel):
 
 
 class UserOut(BaseModel):
-    id: int
+    id: UUID
     email: EmailStr
     full_name: Optional[str] = None
-    auth_provider: Literal["local", "google"]
+    auth_provider: Literal["local", "google", "local+google"]
 
     model_config = ConfigDict(from_attributes=True)

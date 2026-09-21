@@ -9,40 +9,43 @@ from app.PasswdHandling.hashPasswd import hash_password, verify_password
 from app.JWT.createToken import create_access_token
 from app.db_DataHandling.getUser import get_current_user
 from app.db_DataHandling.getSession import get_db
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
 @router.post("/auth/signup", response_model=TokenResponse, status_code=201)
-def signup(payload: SignupRequest, db: Session = Depends(get_db)):
+async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db)):
     email = payload.normalized_email()
-    existing = db.query(User).filter(User.email == email).first()
+    result = await db.execute(select(User).where(User.email == email))
+    existing = result.scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
     user = User(
         email=email,
-        hashed_password=hash_password(payload.password),
+        hashed_password=hash_password(payload.password.get_secret_value()),
         full_name=payload.full_name,
         auth_provider="local",
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
 
     token = create_access_token({"sub": str(user.id)})
     return TokenResponse(access_token=token)
 
 
 @router.post("/auth/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.normalized_email()).first()
+async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == payload.normalized_email()))
+    user = result.scalar_one_or_none()
 
     if not user or not user.hashed_password:
         # Either no such user, or they signed up via Google and have no password
         raise HTTPException(status_code=401, detail="Incorrect email or password")
 
-    if not verify_password(payload.password, user.hashed_password):
+    if not verify_password(payload.password.get_secret_value(), user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
 
     token = create_access_token({"sub": str(user.id)})
@@ -50,7 +53,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/auth/google", response_model=TokenResponse)
-def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)):
+async def google_login(payload: GoogleLoginRequest, db: AsyncSession = Depends(get_db)):
     if not GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=500, detail="Google login not configured")
 
@@ -68,11 +71,13 @@ def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)):
     google_sub = idinfo["sub"]
     email = idinfo["email"].strip().lower()
 
-    user = db.query(User).filter(User.google_sub == google_sub).first()
+    result = await db.execute(select(User).where(User.google_sub == google_sub))
+    user = result.scalar_one_or_none()
 
     if not user:
         # Check if an account with this email already exists (e.g. local signup)
-        user = db.query(User).filter(User.email == email).first()
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
         if user:
             # Link the existing account to Google
             user.google_sub = google_sub
@@ -88,13 +93,13 @@ def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)):
                 hashed_password=None,
             )
             db.add(user)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
 
     token = create_access_token({"sub": str(user.id)})
     return TokenResponse(access_token=token)
 
 
 @router.get("/users/me", response_model=UserOut)
-def read_current_user(current_user: User = Depends(get_current_user)):
+async def read_current_user(current_user: User = Depends(get_current_user)):
     return current_user
