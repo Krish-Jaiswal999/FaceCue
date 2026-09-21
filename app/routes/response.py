@@ -8,16 +8,7 @@ import asyncio
 
 load_dotenv()
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-if not GROQ_API_KEY:
-    raise RuntimeError("GROQ_API_KEY is required; set it in .env before starting FaceCue")
-
 router = APIRouter()
-client = OpenAI(
-    base_url="https://api.groq.com/openai/v1",
-    api_key=GROQ_API_KEY,
-)
-
 MASTER_PROMPT = os.getenv('MASTER_PROMPT')
 
 
@@ -57,9 +48,14 @@ async def generate_response(body: response.ResponseRequest):
     user_message = build_user_message(body.analysis, body.target_emotion, body.message)
  
     try:
-        if not MASTER_PROMPT:
+        groq_api_key = os.getenv("GROQ_API_KEY")
+        if not groq_api_key or not MASTER_PROMPT:
             raise RuntimeError("Coaching service is not configured")
 
+        client = OpenAI(
+            base_url="https://api.groq.com/openai/v1",
+            api_key=groq_api_key,
+        )
         chat_completion = await asyncio.to_thread(
             client.chat.completions.create,
             model="openai/gpt-oss-20b",

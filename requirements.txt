@@ -8,7 +8,11 @@ PyJWT
 sqlalchemy
 asyncpg
 uvicorn
-dotenv
+fastapi
+passlib[bcrypt]
+google-auth
+python-dotenv
+pytest
 requests
 python-multipart
 email-validator

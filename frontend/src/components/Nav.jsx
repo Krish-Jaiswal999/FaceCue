@@ -16,8 +16,8 @@ export default function Nav() {
         </nav>
 
         <div className="nav-actions">
-          <a className="nav-signin" href="#signin">Sign in</a>
-          <a className="btn btn-primary btn-sm" href="#start">Start practicing</a>
+          <a className="nav-signin" href="/practice">Open practice</a>
+          <a className="btn btn-primary btn-sm" href="/practice">Start practicing</a>
         </div>
       </div>
     </header>

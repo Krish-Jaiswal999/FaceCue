@@ -1,8 +1,8 @@
 # FaceCue frontend
 
-React + Vite frontend for FaceCue. Currently ships the landing page only;
-the practice-session screen (the emotion picker, upload, and coaching chat
-in `../templates/`) hasn't been ported over yet.
+React + Vite landing page for FaceCue. The existing practice-session screen
+remains in `../templates/` and is available from the landing page at
+`/practice`.
 
 ## Develop
 
@@ -15,9 +15,8 @@ in `../templates/`) hasn't been ported over yet.
 
 Outputs a static site to `dist/`.
 
-## Wiring up to the backend
+## Backend bridge
 
-The FastAPI app currently serves `../templates` as static files at `/`
-(see `app/__init__.py`). Once the rest of the app is ported into this
-React project, point that `StaticFiles` mount at `frontend/dist` instead
-and run `npm run build` as part of your deploy step.
+The FastAPI app serves the practice client at `/practice` and exposes the
+existing API routes from the same origin. Build this landing page with
+`npm run build` when deploying it separately.

@@ -17,7 +17,7 @@ export default function Hero() {
             camera turns on for real.
           </p>
           <div className="hero-actions">
-            <a className="btn btn-primary" href="#start">Start a practice session</a>
+            <a className="btn btn-primary" href="/practice">Start a practice session</a>
             <a className="btn btn-ghost" href="#how-it-works">See how it works</a>
           </div>
           <p className="hero-footnote">No account needed to try your first photo.</p>
